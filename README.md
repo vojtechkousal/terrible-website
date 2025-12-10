@@ -1,2 +1,1 @@
-# terrible-website
-Terrible website
+Terrible website by Vojtech Kousal, 2025

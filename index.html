@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <title>Komáří hra – stable edition</title>
+
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+            background: #7FBF3F;
+            cursor: none;
+        }
+
+        .mosquito {
+            position: absolute;
+            font-weight: bold;
+            pointer-events: none;
+            color: black;
+            transition: color 0.15s linear, font-size 0.15s;
+        }
+
+        .hit {
+            color: red !important;
+        }
+
+        #swatter {
+            position: fixed;
+            font-family: monospace;
+            font-size: 45px;
+            white-space: pre;
+            line-height: 1;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+
+        .swat-head {
+            display: inline-block;
+            transition: transform 0.07s ease-out;
+        }
+    </style>
+</head>
+
+<body>
+
+<pre id="swatter">
+<span id="head" class="swat-head"> OOO
+OOOOO
+ OOO</span>
+  I
+  I
+  I
+</pre>
+
+<audio id="buzz1" src="./audio/buzz.mp3" loop></audio>
+<audio id="buzz2" src="./audio/buzz.mp3" loop></audio>
+<audio id="buzz3" src="./audio/buzz.mp3" loop></audio>
+
+<audio id="swatSound" src="./audio/slap.mp3"></audio>
+<audio id="splitSound" src="./audio/laugh.mp3"></audio>
+
+<script>
+const swatter = document.getElementById("swatter");
+const head = document.getElementById("head");
+const swatSound = document.getElementById("swatSound");
+const splitSound = document.getElementById("splitSound");
+
+const buzzTracks = [
+    document.getElementById("buzz1"),
+    document.getElementById("buzz2"),
+    document.getElementById("buzz3")
+];
+
+let mosquitoes = [];
+let started = false;
+
+const MAX_MOSQUITOS = 70;
+
+/* Movement of swatter */
+document.addEventListener("mousemove", e => {
+    swatter.style.left = e.clientX + "px";
+    swatter.style.top = e.clientY + "px";
+});
+
+/* Create mosquito */
+function createMosquito(x, y, size = 20) {
+    if (mosquitoes.length >= MAX_MOSQUITOS) return;
+
+    const m = document.createElement("div");
+    m.className = "mosquito";
+    m.textContent = "X";
+
+    m.size = size;
+    m.style.fontSize = size + "px";
+
+    m.x = x;
+    m.y = y;
+
+    m.angle = Math.random() * Math.PI * 2;
+    m.speed = 2 + Math.random() * 1.2;
+
+    document.body.appendChild(m);
+    m.style.left = x + "px";
+    m.style.top = y + "px";
+
+    mosquitoes.push(m);
+
+    if (started) {
+        if (mosquitoes.length <= 3) {
+            const t = buzzTracks[mosquitoes.length - 1];
+            t.volume = 0.7;
+            t.play().catch(() => {});
+        } else {
+            buzzTracks.forEach(t => t.volume = Math.min(1, t.volume + 0.05));
+        }
+    }
+}
+
+/* Starting mosquito */
+setTimeout(() => {
+    createMosquito(innerWidth / 2 - 10, innerHeight / 2 - 10, 20);
+}, 50);
+
+/* Click – swat */
+document.addEventListener("click", e => {
+    const mx = e.clientX;
+    const my = e.clientY;
+
+    head.style.transform = "scale(0.75)";
+    setTimeout(() => head.style.transform = "scale(1)", 120);
+
+    swatSound.currentTime = 0;
+    swatSound.play();
+
+    if (!started) {
+        started = true;
+        buzzTracks[0].volume = 0.7;
+        buzzTracks[0].play();
+        animate();
+    }
+
+    let hits = [];
+
+    // Find all hit mosquitoes FIRST
+    mosquitoes.forEach(m => {
+        const hit = Math.hypot(mx - m.x, my - m.y) < m.size;
+        if (hit) hits.push(m);
+    });
+
+    // Process hits safely
+    hits.forEach(m => {
+        m.classList.add("hit");
+        splitSound.currentTime = 0;
+        splitSound.play();
+
+        const bigger = Math.min(m.size + 4, 60);
+
+        setTimeout(() => {
+            if (m.isConnected) m.remove();
+
+            mosquitoes = mosquitoes.filter(z => z !== m);
+
+            createMosquito(m.x + 20, m.y, bigger);
+            createMosquito(m.x - 20, m.y - 20, bigger);
+
+        }, 120);
+    });
+});
+
+/* Bounce fix */
+function bounceFix(m) {
+    if (m.x <= 0) { m.x = 5; m.angle += Math.PI/2; }
+    if (m.x >= innerWidth - m.size) { m.x = innerWidth - m.size - 5; m.angle += Math.PI/2; }
+    if (m.y <= 0) { m.y = 5; m.angle += Math.PI/2; }
+    if (m.y >= innerHeight - m.size) { m.y = innerHeight - m.size - 5; m.angle += Math.PI/2; }
+}
+
+/* Animation */
+function animate() {
+    mosquitoes.forEach(m => {
+        m.angle += (Math.random() - 0.5) * 0.25;
+
+        m.x += Math.cos(m.angle) * m.speed;
+        m.y += Math.sin(m.angle) * m.speed;
+
+        bounceFix(m);
+
+        m.style.left = m.x + "px";
+        m.style.top = m.y + "px";
+        m.style.transform = `rotate(${m.angle}rad)`;
+    });
+
+    requestAnimationFrame(animate);
+}
+</script>
+
+</body>
+</html>
